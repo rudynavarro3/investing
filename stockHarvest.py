@@ -130,10 +130,10 @@ def analyze_town(ticker:str=None, name:str='') -> float:
     return figures
 
 def get_tickers():
-    df1 = pd.read_csv('stock_info.csv')
+    df1 = pd.read_csv('data/stock_info.csv')
     tickers = set(df1["Ticker"].values.tolist())
 
-    df2 = pd.read_csv('nasdaq-listed.csv')
+    df2 = pd.read_csv('data/nasdaq-listed.csv')
     tickers.update(set(df2["Symbol"].values.tolist()))
 
     mag7 = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA']
