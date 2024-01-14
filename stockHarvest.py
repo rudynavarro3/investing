@@ -2,17 +2,29 @@
 stockHarvest.py ~ scrape macrotrends for basic stock metrics
 
 Prerequisites:
+    pip install yahoofinancials yahoo-finance yahoo_fin selenium requests_html lxml
     conda activate ds
+
+Setup Safari:
+    - open safari
+    - Open safari settings -> advanced tab
+    - Check the "Show features for Web developers" checkbox
+
+    then
+
+    - From the new 'Develop' tab in the top ribbon, click "developer settings"
+    - Check the "Allow remote automation" checkbox
+
+Recommended python version 3.8.18
 """
 from yahoofinancials import YahooFinancials
 import yahoo_fin.stock_info as si
 import pandas as pd
-import requests
 import logging
 import time
 import json
+from io import StringIO
 from selenium import webdriver
-from bs4 import BeautifulSoup
 from datetime import datetime
 
 # Setup Logger
@@ -33,7 +45,7 @@ def analyze_town(ticker:str=None, name:str='') -> float:
         driver = webdriver.Safari()
         driver.get(url)
         time.sleep(1)
-        sdata = pd.read_html(str(driver.page_source))[0]
+        sdata = pd.read_html(StringIO(str(driver.page_source)))[0]
 
         logging.debug(sdata.head())
 
@@ -133,9 +145,8 @@ def get_tickers():
     return ticker_list
 
 if __name__ == '__main__':
-    # tickers = get_tickers()
+    tickers = get_tickers()
     # tickers = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA']
-    tickers = ['AAPL','MSFT']
 
     complete_list = []
     for ticker in tickers:
