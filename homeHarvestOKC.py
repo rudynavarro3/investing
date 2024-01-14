@@ -46,7 +46,7 @@ for location in locations:
         print(f"Number of pending properties in {location}: {len(df)}")
         pending = pd.concat([pending,df])
 
-sold.to_csv(f"HomeHarvest_OKC_sold.csv", index=False)
-selling.to_csv(f"HomeHarvest_OKC_selling.csv", index=False)
-renting.to_csv(f"HomeHarvest_OKC_renting.csv", index=False)
-pending.to_csv(f"HomeHarvest_OKC_pending.csv", index=False)
+sold.to_csv(f"data/homeHarvest/HomeHarvest_OKC_sold.csv", index=False)
+selling.to_csv(f"data/homeHarvest/HomeHarvest_OKC_selling.csv", index=False)
+renting.to_csv(f"data/homeHarvest/HomeHarvest_OKC_renting.csv", index=False)
+pending.to_csv(f"data/homeHarvest/HomeHarvest_OKC_pending.csv", index=False)
