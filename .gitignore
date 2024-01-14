@@ -1,5 +1,5 @@
 # Personal
-*.csv
+data/*/*.csv
 test/*
 town_data/*
 .DS_Store
