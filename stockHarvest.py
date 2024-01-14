@@ -15,7 +15,7 @@ Setup Safari:
     - From the new 'Develop' tab in the top ribbon, click "developer settings"
     - Check the "Allow remote automation" checkbox
 
-Recommended python version 3.8.18
+Recommended python version 3.10.13
 """
 from yahoofinancials import YahooFinancials
 import yahoo_fin.stock_info as si
