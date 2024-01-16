@@ -23,9 +23,12 @@ import pandas as pd
 import logging
 import time
 import json
+import warnings
 from io import StringIO
 from selenium import webdriver
 from datetime import datetime
+
+warnings.filterwarnings('ignore', module='yahoo_fin.stock_info')
 
 # Setup Logger
 logging.basicConfig()
@@ -100,26 +103,30 @@ def analyze_town(ticker:str=None, name:str='') -> float:
         figures = {
             'date': datestr,
             'symbol': ticker,
+            'name': name,
             'EPS': round(eps,6),
             'CAGR': round(cagr,6),
             'PE_val': round(pe,6),
             'PE_avg': round(pe1,6),
             'current_price': round(current_price,6),
             'current_fair_price': round(current_fair_price,6),
-            'buy_ratio': round(buy_ratio,6)
+            'buy_ratio': round(buy_ratio,6),
+            'link': f"https://www.macrotrends.net/stocks/charts/{ticker}/{name}/financial-ratios" 
         }
     except:
         # logging.error(f"Could not process {ticker}")
         figures = {
             'date': datestr,
             'symbol': ticker,
+            'name': name,
             'EPS': '',
             'CAGR': '',
             'PE_val': '',
             'PE_avg': '',
             'current_price': '',
             'current_fair_price': '',
-            'buy_ratio': 0.
+            'buy_ratio': 0.,
+            'link': f"https://www.macrotrends.net/stocks/charts/{ticker}/{name}/financial-ratios" 
         }
     finally:
         try:
@@ -147,6 +154,7 @@ def get_tickers():
 if __name__ == '__main__':
     tickers = get_tickers()
     # tickers = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA']
+    # tickers = ['AAPL']
 
     complete_list = []
     for ticker in tickers:
@@ -161,3 +169,4 @@ if __name__ == '__main__':
 
     export_file = f'data/stockHarvest/stockHarvest_value_analysis_{datestr}.csv'
     pd.DataFrame(complete_list).to_csv(export_file, index=False)
+    logging.info(f"Exported data to {export_file}")
