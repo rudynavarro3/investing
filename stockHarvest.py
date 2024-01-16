@@ -146,6 +146,10 @@ def get_tickers():
     mag7 = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA']
     tickers.update(set(mag7))
 
+    # Remove null tickers
+    dud = pd.read_csv('data/dud_symbols.csv')
+    tickers.difference_update(set(df2["Symbols"].values.tolist()))
+
     ticker_list = list(tickers)
     ticker_list.sort()
 
