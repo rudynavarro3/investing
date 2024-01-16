@@ -2,7 +2,7 @@
 stockHarvest.py ~ scrape macrotrends for basic stock metrics
 
 Prerequisites:
-    pip install yahoofinancials yahoo-finance yahoo_fin selenium requests_html lxml
+    pip install yahoo-finance yahoo_fin selenium requests_html lxml
     conda activate ds
 
 Setup Safari:
@@ -17,12 +17,10 @@ Setup Safari:
 
 Recommended python version 3.10.13
 """
-from yahoofinancials import YahooFinancials
 import yahoo_fin.stock_info as si
 import pandas as pd
 import logging
 import time
-import json
 import warnings
 from io import StringIO
 from selenium import webdriver
@@ -38,11 +36,9 @@ logging.getLogger().setLevel(logging.INFO)
 
 datestr = datetime.now().strftime('%Y-%m-%d')
 
-def analyze_town(ticker:str=None, name:str='') -> float:
+def analyze_town(ticker:str=None) -> float:
     ticker = ticker.upper()
-    name = name.lower()
-
-    url = f'https://www.macrotrends.net/stocks/charts/{ticker}/{name}/pe-ratio'
+    url = f'https://www.macrotrends.net/stocks/charts/{ticker}//pe-ratio'
 
     try:
         driver = webdriver.Safari()
@@ -52,6 +48,10 @@ def analyze_town(ticker:str=None, name:str='') -> float:
 
         logging.debug(sdata.head())
 
+        # Get Company Name
+        raw_title_str = driver.page_source[driver.page_source.find('<title>'):driver.page_source.find('<title>')+100]
+        name = raw_title_str.split(" PE ")[0].lstrip('<title>')
+
         sdata.columns = sdata.columns.droplevel(0) # Get rid of the 'super' header
         sdata.rename(columns={
                 list(sdata)[0]:'Year', 
@@ -60,10 +60,6 @@ def analyze_town(ticker:str=None, name:str='') -> float:
                 list(sdata)[3]:'PE'
             }, inplace=True) # Rename columns
         logging.debug(sdata.head())
-
-        # stock_obj = YahooFinancials(ticker)
-        # eps = stock_obj.get_earnings_per_share()
-        # current_price = stock_obj.get_current_price()
 
         eps = float(sdata['EPS'][sdata['EPS'].notna().idxmax()].replace('$',''))
         current_price = sdata['Price'][0]
@@ -111,14 +107,15 @@ def analyze_town(ticker:str=None, name:str='') -> float:
             'current_price': round(current_price,6),
             'current_fair_price': round(current_fair_price,6),
             'buy_ratio': round(buy_ratio,6),
-            'link': f"https://www.macrotrends.net/stocks/charts/{ticker}/{name}/financial-ratios" 
+            'mt_link': f"https://www.macrotrends.net/stocks/charts/{ticker}//financial-ratios",
+            'link': f"https://finance.yahoo.com/quote/{ticker}" 
         }
     except:
         # logging.error(f"Could not process {ticker}")
         figures = {
             'date': datestr,
             'symbol': ticker,
-            'name': name,
+            'name': '',
             'EPS': '',
             'CAGR': '',
             'PE_val': '',
@@ -126,7 +123,8 @@ def analyze_town(ticker:str=None, name:str='') -> float:
             'current_price': '',
             'current_fair_price': '',
             'buy_ratio': 0.,
-            'link': f"https://www.macrotrends.net/stocks/charts/{ticker}/{name}/financial-ratios" 
+            'mt_link': "https://www.macrotrends.net/stocks/charts/{ticker}//financial-ratios",
+            'link': f"https://finance.yahoo.com/quote/{ticker}" 
         }
     finally:
         try:
@@ -148,7 +146,7 @@ def get_tickers():
 
     # Remove null tickers
     dud = pd.read_csv('data/dud_symbols.csv')
-    tickers.difference_update(set(df2["Symbols"].values.tolist()))
+    tickers.difference_update(set(dud["symbol"].values.tolist()))
 
     ticker_list = list(tickers)
     ticker_list.sort()
