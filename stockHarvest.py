@@ -22,6 +22,7 @@ import pandas as pd
 import logging
 import time
 import warnings
+import numpy as np
 from io import StringIO
 from selenium import webdriver
 from datetime import datetime
@@ -29,7 +30,10 @@ from datetime import datetime
 warnings.filterwarnings('ignore', module='yahoo_fin.stock_info')
 
 # Setup Logger
-logging.basicConfig()
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 logging.getLogger().setLevel(logging.INFO)
 
 # https://medium.com/jpa-quant-articles/stock-valuation-in-python-phil-town-intrinsic-value-2306b32cea9d
@@ -40,97 +44,112 @@ def analyze_town(ticker:str=None) -> float:
     ticker = ticker.upper()
     url = f'https://www.macrotrends.net/stocks/charts/{ticker}//pe-ratio'
 
-    try:
-        driver = webdriver.Safari()
-        driver.get(url)
-        time.sleep(1)
-        sdata = pd.read_html(StringIO(str(driver.page_source)))[0]
-
-        logging.debug(sdata.head())
-
-        # Get Company Name
-        raw_title_str = driver.page_source[driver.page_source.find('<title>'):driver.page_source.find('<title>')+100]
-        name = raw_title_str.split(" PE ")[0].lstrip('<title>')
-
-        sdata.columns = sdata.columns.droplevel(0) # Get rid of the 'super' header
-        sdata.rename(columns={
-                list(sdata)[0]:'Year', 
-                list(sdata)[1]:'Price', 
-                list(sdata)[2]:'EPS', 
-                list(sdata)[3]:'PE'
-            }, inplace=True) # Rename columns
-        logging.debug(sdata.head())
-
-        eps = float(sdata['EPS'][sdata['EPS'].notna().idxmax()].replace('$',''))
-        current_price = sdata['Price'][0]
-
-        cagr = si.get_analysts_info(ticker)['Growth Estimates'][ticker][4]
-        cagr = float(cagr.replace('%','')) / 100 # convert to percentage
-        logging.debug(f"-->{ticker}<-- cagr={cagr}")
-
-        pe1 = float(2 * 100 * cagr) # mulitply by 2
-        pe2 = float(sdata['PE'].iloc[0:20].mean()) # get the mean of the CAGR
-        pe = min(pe1, pe2)
-        logging.debug(f"-->{ticker}<-- pe={pe}")
-
-        earnings_dict = {0:round(eps,2)}
-        logging.debug(f"earnings_dict={earnings_dict}")
-
-        for i in range(1,10):
-            earnings_dict[i] = round(earnings_dict[i-1]+(earnings_dict[i-1] * cagr),2)
-
-        logging.debug(f"-->{ticker}<-- earnings_dict={earnings_dict}")
-
-        fair_price_dict = {9: earnings_dict[9]*pe}
-            
-        for i in range(8,-1,-1):
-            fair_price_dict[i] = fair_price_dict[i+1]/(1+0.15)
-        logging.debug(f"-->{ticker}<-- fair_price_dict={fair_price_dict}")
-
-        current_fair_price = round(fair_price_dict[0],2)
-        logging.debug(f"-->{ticker}<-- current_fair_price={current_fair_price}")
-
-        buyable_price = round((current_fair_price * 0.5), 2)
-        logging.debug(f"-->{ticker}<-- buyable_price={buyable_price}")
-
-        buy_ratio = buyable_price/current_price
-        logging.debug(f"-->{ticker}<-- buy_ratio={buy_ratio}")
-
-        figures = {
-            'date': datestr,
-            'symbol': ticker,
-            'name': name,
-            'EPS': round(eps,6),
-            'CAGR': round(cagr,6),
-            'PE_val': round(pe,6),
-            'PE_avg': round(pe1,6),
-            'current_price': round(current_price,6),
-            'current_fair_price': round(current_fair_price,6),
-            'buy_ratio': round(buy_ratio,6),
-            'mt_link': f"https://www.macrotrends.net/stocks/charts/{ticker}//financial-ratios",
-            'link': f"https://finance.yahoo.com/quote/{ticker}" 
-        }
-    except:
-        # logging.error(f"Could not process {ticker}")
-        figures = {
-            'date': datestr,
-            'symbol': ticker,
-            'name': '',
-            'EPS': '',
-            'CAGR': '',
-            'PE_val': '',
-            'PE_avg': '',
-            'current_price': '',
-            'current_fair_price': '',
-            'buy_ratio': 0.,
-            'mt_link': "https://www.macrotrends.net/stocks/charts/{ticker}//financial-ratios",
-            'link': f"https://finance.yahoo.com/quote/{ticker}" 
-        }
-    finally:
+    tries = 0
+    while tries < 3:
         try:
-            driver.close()
+            driver = webdriver.Safari()
+            driver.get(url)
+            time.sleep(1)
+            sdata = pd.read_html(StringIO(str(driver.page_source)))[0]
+
+            logging.debug(sdata.head())
+
+            # Get Company Name
+            raw_title_str = driver.page_source[driver.page_source.find('<title>'):driver.page_source.find('<title>')+100]
+            name = raw_title_str.split(" PE ")[0].lstrip('<title>')
+
+            if name.startswith('| MacroTrends') or 'macrotrends-favicon.ico' in name:
+                name = ''
+
+            sdata.columns = sdata.columns.droplevel(0) # Get rid of the 'super' header
+            sdata.rename(columns={
+                    list(sdata)[0]:'Year', 
+                    list(sdata)[1]:'Price', 
+                    list(sdata)[2]:'EPS', 
+                    list(sdata)[3]:'PE'
+                }, inplace=True) # Rename columns
+            logging.debug(sdata.head())
+
+            try:
+                eps = float(sdata['EPS'][sdata['EPS'].notna().idxmax()].replace('$',''))
+            except:
+                eps = float(sdata['EPS'][sdata['EPS'].notna().idxmax()])
+            current_price = sdata['Price'][0]
+
+            try:
+                cagr = si.get_analysts_info(ticker)['Growth Estimates'][ticker][4]
+                cagr = float(cagr.replace('%','')) / 100 # convert to percentage
+                logging.debug(f"-->{ticker}<-- cagr={cagr}")
+            except:
+                cagr = np.nan
+
+            pe1 = float(2 * 100 * cagr) # mulitply by 2
+            pe2 = float(sdata['PE'].iloc[0:20].mean()) # get the mean of the CAGR
+            pe = min(pe1, pe2)
+            logging.debug(f"-->{ticker}<-- pe={pe}")
+
+            earnings_dict = {0:round(eps,2)}
+            logging.debug(f"earnings_dict={earnings_dict}")
+
+            for i in range(1,10):
+                earnings_dict[i] = round(earnings_dict[i-1]+(earnings_dict[i-1] * cagr),2)
+
+            logging.debug(f"-->{ticker}<-- earnings_dict={earnings_dict}")
+
+            fair_price_dict = {9: earnings_dict[9]*pe}
+                
+            for i in range(8,-1,-1):
+                fair_price_dict[i] = fair_price_dict[i+1]/(1+0.15)
+            logging.debug(f"-->{ticker}<-- fair_price_dict={fair_price_dict}")
+
+            current_fair_price = round(fair_price_dict[0],2)
+            logging.debug(f"-->{ticker}<-- current_fair_price={current_fair_price}")
+
+            buyable_price = round((current_fair_price * 0.5), 2)
+            logging.debug(f"-->{ticker}<-- buyable_price={buyable_price}")
+
+            buy_ratio = buyable_price/current_price
+            logging.debug(f"-->{ticker}<-- buy_ratio={buy_ratio}")
+
+            figures = {
+                'date': datestr,
+                'symbol': ticker,
+                'name': name,
+                'EPS': round(eps,6),
+                'CAGR': round(cagr,6),
+                'PE_val': round(pe,6),
+                'PE_avg': round(pe1,6),
+                'current_price': round(current_price,6),
+                'current_fair_price': round(current_fair_price,6),
+                'buy_ratio': round(buy_ratio,6),
+                'mt_link': f"https://www.macrotrends.net/stocks/charts/{ticker}//financial-ratios",
+                'link': f"https://finance.yahoo.com/quote/{ticker}" 
+            }
+            tries = 3
         except:
-            logging.debug('pass')
+            # logging.error(f"Could not process {ticker}")
+            figures = {
+                'date': datestr,
+                'symbol': ticker,
+                'name': '',
+                'EPS': '',
+                'CAGR': '',
+                'PE_val': '',
+                'PE_avg': '',
+                'current_price': '',
+                'current_fair_price': '',
+                'buy_ratio': 0.,
+                'mt_link': "https://www.macrotrends.net/stocks/charts/{ticker}//financial-ratios",
+                'link': f"https://finance.yahoo.com/quote/{ticker}" 
+            }
+            tries += 1
+            logging.error(f"{ticker} failed {tries} times...")
+            time.sleep(20)
+        finally:
+            try:
+                driver.close()
+            except:
+                logging.debug('pass')
 
     return figures
 
@@ -145,8 +164,12 @@ def get_tickers():
     tickers.update(set(mag7))
 
     # Remove null tickers
-    dud = pd.read_csv('data/dud_symbols.csv')
-    tickers.difference_update(set(dud["symbol"].values.tolist()))
+    # dud = pd.read_csv('data/dud_symbols.csv')
+    # tickers.difference_update(set(dud["symbol"].values.tolist()))
+
+    # Remove known bad tickers
+    # tickers.difference_update(set(['BEAV','CCUR','EBR','EVFM','FAM','FEO','FMO','FSD','JSMD','LCM','MFD','SNLN','TOPS','VRTB']))
+
 
     ticker_list = list(tickers)
     ticker_list.sort()
@@ -156,7 +179,7 @@ def get_tickers():
 if __name__ == '__main__':
     tickers = get_tickers()
     # tickers = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA']
-    # tickers = ['AAPL']
+    # tickers = ['AABA']
 
     complete_list = []
     for ticker in tickers:
