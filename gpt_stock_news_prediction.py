@@ -1,5 +1,6 @@
 import datetime as dt
 import logging
+import os
 
 import numpy as np
 
@@ -21,8 +22,12 @@ def fetch_stock_data(ticker, start_date, end_date):
 
 
 # Function to fetch news sentiment
-def fetch_news_sentiment(api_key, query, from_date, to_date):
-    url = f"https://newsapi.org/v2/everything?q={query}&from={from_date}&to={to_date}&sortBy=publishedAt&apiKey={api_key}"
+def fetch_fmp_sentiment(
+    api_key: str = os.environ["fmp_api_key"],
+    query: str = None,
+    period: str = "quarter",
+):
+    url = f"https://financialmodelingprep.com/api/v3/key-metrics/{query}?period={period}&apikey={api_key}"
     response = requests.get(url).json()
     articles = response.get("articles", [])
     analyzer = SentimentIntensityAnalyzer()
@@ -31,6 +36,19 @@ def fetch_news_sentiment(api_key, query, from_date, to_date):
     ]
     avg_sentiment = np.mean(sentiments) if sentiments else 0
     return avg_sentiment
+
+
+# # Function to fetch news sentiment
+# def fetch_news_sentiment(api_key, query, from_date, to_date):
+#     url = f"https://newsapi.org/v2/everything?q={query}&from={from_date}&to={to_date}&sortBy=publishedAt&apiKey={api_key}"
+#     response = requests.get(url).json()
+#     articles = response.get("articles", [])
+#     analyzer = SentimentIntensityAnalyzer()
+#     sentiments = [
+#         analyzer.polarity_scores(article["title"])["compound"] for article in articles
+#     ]
+#     avg_sentiment = np.mean(sentiments) if sentiments else 0
+#     return avg_sentiment
 
 
 # Preprocess the data
@@ -61,10 +79,10 @@ def build_lstm_model(input_shape):
 
 
 def main(
-    ticker: str = "AAPL", start_date: str = "2020-01-01", end_date: str = "2023-01-01"
+    ticker: str = "AAPL", start_date: str = "2023-07-06", end_date: str = "2024-07-25"
 ):
 
-    news_api_key = "a4db0d7aa7f049fcb0fe9f7e29365006"
+    # news_api_key = os.environ.get('news_api_key')
 
     # Fetch stock data
     stock_data = fetch_stock_data(ticker, start_date, end_date)
@@ -72,9 +90,10 @@ def main(
     # Fetch news sentiment data
     sentiment_data = []
     for date in stock_data.index:
-        sentiment = fetch_news_sentiment(
-            news_api_key, ticker, date.strftime("%Y-%m-%d"), date.strftime("%Y-%m-%d")
-        )
+        # sentiment = fetch_news_sentiment(
+        #     news_api_key, ticker, date.strftime("%Y-%m-%d"), date.strftime("%Y-%m-%d")
+        # )
+        sentiment = fetch_fmp_sentiment(query=ticker, period="quarter")
         sentiment_data.append(sentiment)
 
     # Preprocess data
@@ -112,6 +131,8 @@ def main(
     plt.ylabel("Close Price USD ($)")
     plt.legend()
     plt.show()
+
+    logging.info("completed")
 
 
 # Main script
