@@ -3,6 +3,7 @@ data/*/*.csv
 test/*
 town_data/*
 .DS_Store
+.vscode/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
